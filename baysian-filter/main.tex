@@ -1,0 +1,237 @@
+\documentclass{article}
+\usepackage{
+  amsmath,
+  amssymb,
+  amsfonts,
+  amsthm,
+  cancel
+}
+\newcommand{\var}{\operatorname{var}}
+\newcommand{\cov}{\operatorname{cov}}
+\DeclareMathOperator{\ex}{\mathbb{E}}
+\setlength{\parindent}{0pt}
+\begin{document}
+
+
+\section{Baysian Filter}
+
+Let $x_t, z_t$ be the state and measurement over time.
+The Bayesian belief $g(x_t)$ at the time $t$
+is the probability of the hidden
+state $x_t$ given by the history of measurements
+$z_{1:t} = z_1, \dots, z_t$.
+\begin{equation*}
+  g(x_t) := p(x_t|z_{1:t})
+\end{equation*}
+
+By using Bayes' theorem on
+\begin{equation*}
+  p(A|B) = \frac{p(B|A) p(A)}{p(B)}
+  \implies
+  p(A|B,C) = \frac{p(B|A,C) p(A|C)}{p(B|C)},
+\end{equation*}
+
+we have
+\begin{equation*}
+  g(x_t) = p(x_t|z_{1:t}) = p(x_t|z_t, z_{1:t-1})
+  = \frac{p(z_t|x_t, z_{1:t-1}) p(x_t | z_{1:t-1})}{p(z_t|z_{1:t-1})}.
+\end{equation*}
+
+Since the true state $x$ is assumed to be a Markov process,
+we can simplify the equation above into
+\begin{equation*}
+  g(x_t)
+  = \frac{p(z_t|x_t) p(x_t | z_{1:t-1})}{p(z_t|z_{1:t-1})}.
+\end{equation*}
+
+In practice, we would design some algorithm to
+obtain $p(z_t|x_t)$ and $p(x_t|z_{1:t-1})$,
+so the denominator $p(z_t|z_{1:t-1})$ can be considered as a
+coefficient to make $g(x_t)$ to be a valid probability.
+
+Or we may write
+\begin{equation*}
+  g(x_t)
+  \propto p(z_t|x_t) p(x_t | z_{1:t-1}).
+\end{equation*}
+
+Next, let's expand the term $p(x_t|z_{1:t-1})$ w.r.t $x_{t-1}$
+\begin{align*}
+  p(x_t|z_{1:t-1})
+  &= \int p(x_t|x_{t-1}, z_{1:t-1}) p(x_{t-1}|z_{1:t-1}) d x_{t-1} \\
+  &= \int p(x_t|x_{t-1}) p(x_{t-1}|z_{1:t-1}) d x_{t-1},
+  (\text{again, the Markov assumption}) \\
+  &= \int p(x_t|x_{t-1}) g(x_{t-1}) d x_{t-1}.
+\end{align*}
+
+Finally we have a recursive update process,
+\begin{equation*}
+  g(x_t) \leftarrow \eta \cdot p(z_t|x_t) \int p(x_t|x_{t-1}) g(x_{t-1}) d x_{t-1},
+\end{equation*}
+with the terms $\eta, p(z_t|x_t), p(x_t|x_{t-1})$ representing
+some coefficient, the measurements, and the transition model, respectively.
+
+\section{Kalman Filter}
+
+\subsection{Matrix Calculus Background}
+
+Trace Formula
+
+\begin{equation*}
+  tr(AB) = A_{ij}B_{ji}
+\end{equation*}
+
+\begin{equation*}
+  tr(ABC) = A_{ij}(BC)_{ji} = A_{ij}B_{jk}C_{ki}
+\end{equation*}
+
+\begin{equation*}
+  d(tr A) = tr(dA)
+\end{equation*}
+
+\begin{equation*}
+  F(A) = tr(AB), F'(A) = B^{T}
+\end{equation*}
+
+\begin{align*}
+  d(tr(AB)) = tr(dA\ B) = dA_{ij}\ B_{ji}
+  \implies F'(A) = B^T
+\end{align*}
+
+\begin{equation*}
+  F(A) = tr(BA^{T}) = tr(AB^{T}) \implies F'(A) = B
+\end{equation*}
+
+\subsection{Model}
+
+A physical model
+
+\begin{align*}
+  x_{t} = F_{t} x_{t-1} + w_{t} \\
+  z_{t} = H_{t} x_{t} + v_{t}
+,\end{align*}
+
+where
+\begin{align*}
+  \text{process noise: } W_{t} \sim N(0, Q_{t}) \\
+  \text{observation noise: } V_{t} \sim N(0, R_{t})\\
+  Q_{t} := \cov(W_{t}) \\
+  R_{t} := \cov(V_{t})
+\end{align*}
+
+A posteriori state estimate at time $t_1$ given
+observations up to and including at time $t_2$ is denoted as
+$\hat{x}_{t_1|t_2}$.
+
+And the other state variable in the filter is the posterior
+covariance of the estimated accuracy
+\begin{align*}
+  P_{t_1|t_2} := \cov(x_{t_1} - \hat{x}_{t_1|t_2})
+\end{align*}
+
+
+In predict stage, we can use our priori knowledge $\hat{x}_{t-1|t-1}$ to
+predict the next state estimate
+\begin{align*}
+  \hat{x}_{t|t-1} = F_{t}\hat{x}_{t-1|t-1} + B_{t}u_{t}
+\end{align*}
+and the next estimate covariance
+\begin{align*}
+  P_{t|t-1}
+  &= \cov(x_{t} - \hat{x}_{t|t-1})
+  = \cov(F_{t} x_{t-1} + W_{t} - (F_{t}\hat{x}_{t-1|t-1} + B_{t}u_{t}))\\
+  &= \cov\left(F_{t} (x_{t-1} - \hat{x}_{t-1|t-1}) + W_{t} - B_{t} u_{t}\right) \\
+  &= \cov\left(F_{t} (x_{t-1} - \hat{x}_{t-1|t-1})\right)
+  + \cov(W_{t}) + \cancelto{0}{\cov(B_{t} u_{t})}\\
+  &\text{(separate cov terms due to independence)}\\
+  &= F_{t} P_{t-1|t-1} F_{t}^{T} + Q_{t}
+.\end{align*}
+
+In update stage, the innovation representing the difference
+between the observation and the forecast is
+\begin{align*}
+  \hat{y}_{t} = z_{t} - H_{t} \hat{x}_{t|t-1}
+.\end{align*}
+
+Plus, the covariance of innovation $S_{t}$ can easily computed by
+\begin{align*}
+  S_{t}
+  &= \cov(z_{t} - H_{t}\hat{x}_{t|t-1})
+  = \cov(H_{t}(x_{t} - x_{t|t-1}) + v_{t})\\
+  &= H_{t} \cov(x_{t} - x_{t|t-1}) H_{t}^{T} + \cov(v_{t})\\
+  &\text{(separate due to the independence)}\\
+  &= H_{t} P_{t|t-1} H_{t}^{T} + R_{t}
+\end{align*}
+
+And we can use the above difference to weight update
+the state estimate (the posteriori)
+\begin{align*}
+  \hat{x}_{t|t} = \hat{x}_{t|t-1} + K_{t} \hat{y}_{t}
+.\end{align*}
+
+Colloquially, the gain factor $K_{t}$ control the linear interpolation
+\begin{align*}
+  \hat{x}_{t|t} = \hat{x}_{t|t-1} + K_{t} \hat{y}_{t}
+  = (1 - K_{t} H_{t}) \hat{x}_{t|t-1} + K_{t} z_{t}
+.\end{align*}
+A lower $K_{t}$ means higher error in the sensor.
+
+The goal of the Kalman filter is to find the optimal gain to minimize
+the error.
+
+Let's derive the posterior estimate covariance matrix
+\begin{align*}
+  P_{t|t}
+  &= \cov(x_{t} - \hat{x}_{t|t})
+  = \cov(x_{t} - (1 - K_{t} H_{t}) \hat{x}_{t|t-1} - K_{t} z_{t})\\
+  &= \cov(x_{t} - (1 - K_{t} H_{t}) \hat{x}_{t|t-1} - K_{t} H_{t}x_{t} - K_{t}v_{t})\\
+  &= \cov((1 - K_{t} H_{t})(x_{t} - \hat{x}_{t|t-1}) - K_{t}v_{t})\\
+  &(\text{separate terms due to the independence})\\
+  &= \cov((1 - K_{t} H_{t})(x_{t} - \hat{x}_{t|t-1})) + \cov(K_{t}v_{t})\\
+  &= (1 - K_{t} H_{t})\cov(x_{t} - \hat{x}_{t|t-1})(1 - K_{t} H_{t})^{T}
+  + K_{t}\cov(v_{t})K_{t}^{T}\\
+  &= (1 - K_{t} H_{t})P_{t|t-1}(1 - K_{t} H_{t})^{T} + K_{t}R_{t}K_{t}^{T}
+.\end{align*}
+
+Now let's find the Kalman gain of the minimizing probelm
+\begin{align*}
+  \text{argmin}_{K_{t}} \ex{(\|x_{t} - \hat{x}_{t|t}\|^{2})}
+,\end{align*}
+which is equivalent to minimize $\text{tr}(P_{t|t})$.
+
+Since
+\begin{align*}
+  P_{t|t}
+  &= (1 - K_{t} H_{t})P_{t|t-1}(1 - K_{t} H_{t})^{T} + K_{t}R_{t}K_{t}^{T}\\
+  &= P_{t|t-1} - K_{t}H_{t}P_{t|t-1} - P_{t|t-1}H_{t}^{T}K_{t}^{T}
+  + K_{t}(H_{t}P_{t|t-1}H_{t}^{T} + R_{t})K_{t}^{T}\\
+  &= P_{t|t-1} - K_{t}H_{t}P_{t|t-1} - P_{t|t-1}H_{t}^{T}K_{t}^{T}
+  + K_{t}S_{t}K_{t}^{T}
+,\end{align*}
+we can solve the optimal gain by letting
+\begin{align*}
+  \frac{d \text{tr}(P_{t|t})}{K_{t}}
+  &= 0
+  = -2 (H_{t}P_{t|t-1})^{T} + K_{t}(S_{t} + S_{t}^{T})\\
+  &= -2 P_{t|t-1}H_{t}^{T} + 2 K_{t}S_{t}\\
+  &(\text{using the symmetry of the covariance matrices } P_{t|t-1}, S_{t})
+,\end{align*}
+which implies
+\begin{align*}
+  K_{t} = P_{t|t-1}H_{t}^{T}S_{t}^{-1}
+.\end{align*}
+
+And we can further simplify the posterior error covariance by
+
+\begin{align*}
+  &\because K_{t}S_{t}K_{t}^{T} = P_{t|t-1}H_{t}^{T}K_{t}^{T}\\
+  \implies
+  P_{t|t}
+  &= P_{t|t-1} - K_{t}H_{t}P_{t|t-1} +
+  (- P_{t|t-1}H_{t}^{T}K_{t}^{T} + K_{t}S_{t}K_{t}^{T})\\
+  &= (1 - K_{t}H_{t})P_{t|t-1}
+.\end{align*}
+
+
+
+\end{document}
